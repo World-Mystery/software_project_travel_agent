@@ -1,0 +1,31 @@
+{
+  "name": "smart-travel-assistant-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "generate:spec": "python ../backend/scripts/export_openapi.py ./src/types/generated/openapi.json",
+    "generate:types": "npm run generate:spec && openapi-typescript ./src/types/generated/openapi.json -o ./src/types/generated/schema.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.76.1",
+    "antd": "^5.24.8",
+    "dayjs": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.5.3",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@types/react": "^18.3.22",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react-swc": "^3.9.0",
+    "openapi-typescript": "^7.7.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.19"
+  }
+}

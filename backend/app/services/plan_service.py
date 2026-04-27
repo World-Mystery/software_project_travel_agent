@@ -1,0 +1,252 @@
+from datetime import date
+
+from fastapi import BackgroundTasks, HTTPException, status
+from sqlmodel import Session
+
+from app.agents.graph import run_planning_graph
+from app.agents.state import PlanningState
+from app.core.time import utc_now
+from app.db.models import PlanTask, TripPlan, TripPlanVersion, User
+from app.db.session import get_session
+from app.dto.plan import (
+    TripPlanCreateRequest,
+    TripPlanEditRequest,
+    TripPlanResponse,
+    TripPlanVersionResponse,
+)
+from app.dto.task import PlanTaskCreateResponse
+from app.dto.warning import WeatherWarningResponse
+from app.repositories.plan_repo import PlanRepository
+from app.repositories.profile_repo import ProfileRepository
+from app.repositories.task_repo import TaskRepository
+from app.repositories.version_repo import VersionRepository
+from app.services.weather_service import WeatherService
+
+
+class PlanService:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.plans = PlanRepository(session)
+        self.versions = VersionRepository(session)
+        self.tasks = TaskRepository(session)
+        self.profiles = ProfileRepository(session)
+
+    def create_plan_task(
+        self,
+        user: User,
+        payload: TripPlanCreateRequest,
+        background_tasks: BackgroundTasks,
+    ) -> PlanTaskCreateResponse:
+        task = self.tasks.create(
+            PlanTask(user_id=user.id, request_json={"mode": "create", **payload.model_dump(mode="json")})
+        )
+        background_tasks.add_task(process_plan_task, task.id)
+        return PlanTaskCreateResponse(task_id=task.id, status=task.status)
+
+    def regenerate_plan_task(
+        self,
+        user: User,
+        plan_id: int,
+        version_id: int,
+        payload: TripPlanCreateRequest,
+        background_tasks: BackgroundTasks,
+    ) -> PlanTaskCreateResponse:
+        plan = self._get_owned_plan(plan_id, user)
+        version = self._get_owned_version(version_id, user)
+        if version.plan_id != plan.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found for plan")
+        task = self.tasks.create(
+            PlanTask(
+                user_id=user.id,
+                plan_id=plan.id,
+                request_json={
+                    "mode": "regenerate",
+                    "parent_version_id": version_id,
+                    **payload.model_dump(mode="json"),
+                },
+            )
+        )
+        background_tasks.add_task(process_plan_task, task.id)
+        return PlanTaskCreateResponse(task_id=task.id, status=task.status)
+
+    def list_plans(self, user: User) -> list[TripPlanResponse]:
+        return [self._build_plan_response(plan) for plan in self.plans.list_by_user_id(user.id)]
+
+    def get_plan(self, plan_id: int, user: User) -> TripPlanResponse:
+        return self._build_plan_response(self._get_owned_plan(plan_id, user))
+
+    def list_versions(self, plan_id: int, user: User) -> list[TripPlanVersionResponse]:
+        plan = self._get_owned_plan(plan_id, user)
+        return [TripPlanVersionResponse.model_validate(v) for v in self.versions.list_by_plan_id(plan.id)]
+
+    def edit_version(
+        self,
+        user: User,
+        plan_id: int,
+        version_id: int,
+        payload: TripPlanEditRequest | dict,
+    ) -> TripPlanVersionResponse:
+        parsed = payload if isinstance(payload, TripPlanEditRequest) else TripPlanEditRequest.model_validate(payload)
+        plan = self._get_owned_plan(plan_id, user)
+        version = self._get_owned_version(version_id, user)
+        latest = self.versions.get_latest_for_plan(plan.id)
+        new_version = TripPlanVersion(
+            plan_id=plan.id,
+            parent_version_id=version.id,
+            owner_user_id=user.id,
+            version_no=(latest.version_no if latest else 0) + 1,
+            source_type="edited",
+            content_json=parsed.content,
+            change_summary=parsed.change_summary,
+        )
+        saved = self.versions.create(new_version)
+        plan.current_version_id = saved.id
+        plan.title = parsed.title or plan.title
+        plan.updated_at = utc_now()
+        self.plans.save(plan)
+        return TripPlanVersionResponse.model_validate(saved)
+
+    def get_current_warnings(self, plan_id: int, user: User) -> WeatherWarningResponse:
+        plan = self._get_owned_plan(plan_id, user)
+        version = self._require_current_version(plan)
+        return self._warnings_for_version(plan.id, version)
+
+    def get_version_warnings(self, plan_id: int, version_id: int, user: User) -> WeatherWarningResponse:
+        plan = self._get_owned_plan(plan_id, user)
+        version = self._get_owned_version(version_id, user)
+        if version.plan_id != plan.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found for plan")
+        return self._warnings_for_version(plan.id, version)
+
+    def _warnings_for_version(self, plan_id: int, version: TripPlanVersion) -> WeatherWarningResponse:
+        weather_info = version.content_json.get("weather_info", [])
+        return WeatherService.build_warnings(plan_id, version.id, weather_info)
+
+    def _build_plan_response(self, plan: TripPlan) -> TripPlanResponse:
+        current_version = self.versions.get_by_id(plan.current_version_id) if plan.current_version_id else None
+        return TripPlanResponse(
+            id=plan.id,
+            owner_user_id=plan.owner_user_id,
+            title=plan.title,
+            city=plan.city,
+            start_date=plan.start_date,
+            end_date=plan.end_date,
+            budget_range=plan.budget_range,
+            current_version_id=plan.current_version_id,
+            created_at=plan.created_at,
+            updated_at=plan.updated_at,
+            current_version=TripPlanVersionResponse.model_validate(current_version) if current_version else None,
+        )
+
+    def _require_current_version(self, plan: TripPlan) -> TripPlanVersion:
+        if not plan.current_version_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan has no current version")
+        version = self.versions.get_by_id(plan.current_version_id)
+        if not version:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Current version not found")
+        return version
+
+    def _get_owned_plan(self, plan_id: int, user: User) -> TripPlan:
+        plan = self.plans.get_by_id(plan_id)
+        if not plan or plan.owner_user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+        return plan
+
+    def _get_owned_version(self, version_id: int, user: User) -> TripPlanVersion:
+        version = self.versions.get_by_id(version_id)
+        if not version or version.owner_user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+        return version
+
+
+def process_plan_task(task_id: int) -> None:
+    with get_session() as session:
+        tasks = TaskRepository(session)
+        plans = PlanRepository(session)
+        versions = VersionRepository(session)
+        profiles = ProfileRepository(session)
+
+        task = tasks.get_by_id(task_id)
+        if not task:
+            return
+
+        try:
+            task.status = "running"
+            task.progress = 10
+            tasks.save(task)
+
+            payload = dict(task.request_json)
+            profile = profiles.get_by_user_id(task.user_id)
+            profile_json = profile.profile_json if profile else {}
+
+            state = PlanningState(
+                user_id=task.user_id,
+                request=payload,
+                user_profile=profile_json,
+            )
+            state = run_planning_graph(state)
+
+            task.progress = 70
+            tasks.save(task)
+
+            mode = payload.get("mode", "create")
+            start_date = date.fromisoformat(payload["start_date"]) if isinstance(payload["start_date"], str) else payload["start_date"]
+            end_date = date.fromisoformat(payload["end_date"]) if isinstance(payload["end_date"], str) else payload["end_date"]
+            if mode == "create":
+                plan = TripPlan(
+                    owner_user_id=task.user_id,
+                    title=payload["title"],
+                    city=payload["city"],
+                    start_date=start_date,
+                    end_date=end_date,
+                    budget_range=payload["budget_range"],
+                )
+                plan = plans.create(plan)
+                parent_version_id = None
+                version_no = 1
+                source_type = "created"
+            else:
+                plan = plans.get_by_id(task.plan_id)
+                if not plan:
+                    raise ValueError("Plan not found during regeneration")
+                latest = versions.get_latest_for_plan(plan.id)
+                parent_version_id = payload.get("parent_version_id")
+                version_no = (latest.version_no if latest else 0) + 1
+                source_type = "regenerated"
+                plan.title = payload["title"]
+                plan.city = payload["city"]
+                plan.start_date = start_date
+                plan.end_date = end_date
+                plan.budget_range = payload["budget_range"]
+                plan.updated_at = utc_now()
+                plans.save(plan)
+
+            warning_response = WeatherService.build_warnings(plan.id, 0, state.final_plan["weather_info"])
+            state.final_plan["warnings"] = [item.model_dump() for item in warning_response.warnings]
+
+            version = TripPlanVersion(
+                plan_id=plan.id,
+                parent_version_id=parent_version_id,
+                owner_user_id=task.user_id,
+                version_no=version_no,
+                source_type=source_type,
+                content_json=state.final_plan,
+                change_summary=f"{source_type} by background task",
+            )
+            version = versions.create(version)
+            plan.current_version_id = version.id
+            plan.updated_at = utc_now()
+            plans.save(plan)
+
+            task.plan_id = plan.id
+            task.result_version_id = version.id
+            task.status = "success"
+            task.progress = 100
+            task.error_message = None
+            tasks.save(task)
+        except Exception as exc:
+            session.rollback()
+            task.status = "failed"
+            task.progress = 100
+            task.error_message = str(exc)
+            tasks.save(task)
