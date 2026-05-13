@@ -7,6 +7,8 @@ import { LoginPage } from "../pages/LoginPage";
 import { PlanDetailPage } from "../pages/PlanDetailPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { TaskPage } from "../pages/TaskPage";
+import { PlanHistoryPage } from "../pages/PlanHistoryPage";
+import { VersionHistoryPage } from "../pages/VersionHistoryPage";
 
 function ProtectedShell() {
   return (
@@ -42,6 +44,14 @@ export const router = createBrowserRouter([
       {
         path: "profile",
         element: <ProfilePage />,
+      },
+      {
+        path: "history",
+        element: <PlanHistoryPage />,
+      },
+      {
+        path: "versions",
+        element: <VersionHistoryPage />,
       },
     ],
   },
