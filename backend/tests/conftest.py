@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 def client(tmp_path: Path):
     os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'test.db'}"
     os.environ["SECRET_KEY"] = "test-secret"
+    os.environ["AGENT_PROVIDER_MODE"] = "mock"
 
     from app.core.config import get_settings
     from app.db import session as db_session
