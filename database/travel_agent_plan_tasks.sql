@@ -41,11 +41,21 @@ CREATE TABLE `plan_tasks` (
   KEY `fk_tasks_plan` (`plan_id`),
   KEY `fk_tasks_result_version` (`result_version_id`),
   CONSTRAINT `fk_tasks_plan` FOREIGN KEY (`plan_id`) REFERENCES `trip_plans` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_tasks_result_version` FOREIGN KEY (`result_version_id`) REFERENCES `trip_plan_version` (`id`),
+  CONSTRAINT `fk_tasks_result_version` FOREIGN KEY (`result_version_id`) REFERENCES `trip_plan_version` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `chk_progress` CHECK (((`progress` >= 0) and (`progress` <= 100)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `plan_tasks`
+--
+
+LOCK TABLES `plan_tasks` WRITE;
+/*!40000 ALTER TABLE `plan_tasks` DISABLE KEYS */;
+INSERT INTO `plan_tasks` VALUES (1,1,NULL,'generate_plan','{\"city\": \"成都\", \"days\": 7}','success',100,NULL,NULL,'2026-05-22 15:08:43','2026-05-22 15:08:43'),(2,2,2,'optimize_route','{\"optimize\": true}','running',80,NULL,NULL,'2026-05-22 15:08:43','2026-05-22 15:36:02'),(3,1,NULL,'regenerate_day','{\"day\": 3}','failed',30,NULL,'LLM timeout','2026-05-22 15:08:43','2026-05-22 15:08:43');
+/*!40000 ALTER TABLE `plan_tasks` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -56,4 +66,4 @@ CREATE TABLE `plan_tasks` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-22  1:25:29
+-- Dump completed on 2026-05-22 17:55:44

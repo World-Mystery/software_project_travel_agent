@@ -37,11 +37,21 @@ CREATE TABLE `trip_plan_version` (
   KEY `idx_plan_id` (`plan_id`) /*!80000 INVISIBLE */,
   KEY `idx_owner_user_id` (`owner_user_id`) /*!80000 INVISIBLE */,
   KEY `fk_version_parent_idx` (`parent_version_id`),
-  CONSTRAINT `fk_version_parent` FOREIGN KEY (`parent_version_id`) REFERENCES `trip_plan_version` (`id`),
+  CONSTRAINT `fk_version_parent` FOREIGN KEY (`parent_version_id`) REFERENCES `trip_plan_version` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_version_user` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_versions_plan` FOREIGN KEY (`plan_id`) REFERENCES `trip_plans` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `trip_plan_version`
+--
+
+LOCK TABLES `trip_plan_version` WRITE;
+/*!40000 ALTER TABLE `trip_plan_version` DISABLE KEYS */;
+INSERT INTO `trip_plan_version` VALUES (3,2,NULL,2,1,'created','Initial Xizang itinerary','{\"days\": 5, \"hotel\": \"神秘小旅馆三号\", \"spots\": [\"景点6\", \"景点7\"]}','2026-05-22 15:08:43');
+/*!40000 ALTER TABLE `trip_plan_version` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -52,4 +62,4 @@ CREATE TABLE `trip_plan_version` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-22  1:25:29
+-- Dump completed on 2026-05-22 17:55:44
