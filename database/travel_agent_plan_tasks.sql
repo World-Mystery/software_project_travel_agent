@@ -41,7 +41,7 @@ CREATE TABLE `plan_tasks` (
   KEY `fk_tasks_plan` (`plan_id`),
   KEY `fk_tasks_result_version` (`result_version_id`),
   CONSTRAINT `fk_tasks_plan` FOREIGN KEY (`plan_id`) REFERENCES `trip_plans` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_tasks_result_version` FOREIGN KEY (`result_version_id`) REFERENCES `trip_plan_version` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_result_version` FOREIGN KEY (`result_version_id`) REFERENCES `trip_plan_versions` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_tasks_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `chk_progress` CHECK (((`progress` >= 0) and (`progress` <= 100)))
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -67,3 +67,5 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-05-22 17:55:44
+
+

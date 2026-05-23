@@ -8,7 +8,7 @@ INSERT INTO users (
     id,
     username,
     email,
-    password,
+    password_hash,
     status,
     created_at,
     updated_at
@@ -16,27 +16,27 @@ INSERT INTO users (
 VALUES
 (
     1,
-    '张三',
-    'zhang@example.com',
-    'hash_zhang',
+    'alice',
+    'alice@example.com',
+    '$9DYbcoJlEDEvWSD1UCaGRoFnlF0yLcyxreTBwUcsp/M',
     'active',
     NOW(),
     NOW()
 ),
 (
     2,
-    '李四',
+    'li',
     'li@example.com',
-    'hash_li',
+    '$9DYbcoJlEDEvWSD1UCaGRoFnlF0yLcyxreTBwUcsp/M',
     'active',
     NOW(),
     NOW()
 ),
 (
     3,
-    '王五',
+    'wang',
     'wang@example.com',
-    'hash_wang',
+    '$9DYbcoJlEDEvWSD1UCaGRoFnlF0yLcyxreTBwUcsp/M',
     'disabled',
     NOW(),
     NOW()
@@ -123,7 +123,7 @@ VALUES
 -- trip_plan_version
 -- =========================
 
-INSERT INTO trip_plan_version (
+INSERT INTO trip_plan_versions (
     id,
     plan_id,
     parent_version_id,
