@@ -6,6 +6,7 @@ import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { PlanDetailPage } from "../pages/PlanDetailPage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { RegisterPage } from "../pages/RegisterPage";
 import { TaskPage } from "../pages/TaskPage";
 import { PlanHistoryPage } from "../pages/PlanHistoryPage";
 import { VersionHistoryPage } from "../pages/VersionHistoryPage";
@@ -24,6 +25,10 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
   },
   {
     path: "/",

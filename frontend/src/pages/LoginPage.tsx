@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { fetchMe, login } from "../api/auth";
 import { ApiError } from "../api/client";
@@ -54,6 +54,9 @@ export function LoginPage() {
               Continue
             </Button>
           </Form>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            No account yet? <Link to="/register">Create one</Link>
+          </Typography.Paragraph>
         </Space>
       </Card>
     </div>
